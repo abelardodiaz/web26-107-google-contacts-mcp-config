@@ -1,0 +1,47 @@
+# ============================================================================
+# PROJECT.yaml - Archivo de metadatos del proyecto
+# ============================================================================
+#
+# PARA CLAUDE (IA): Este archivo es leido por el Project Manager (99999) para:
+#   1. Detectar el estado del proyecto (online/offline)
+#   2. Saber que puertos monitorear
+#   3. Entender la arquitectura del proyecto
+#
+# INSTRUCCIONES PARA CLAUDE:
+#   - Si haces cambios de version, actualiza 'project.version'
+#   - Siempre actualiza 'updated_at' y 'updated_by' al modificar
+#   - El 'updated_by' debe ser tu identificador (ej: claude-107)
+#
+# NO MODIFICAR SIN RAZON:
+#   - project.code (identificador unico)
+#   - server.location (donde corre el proyecto)
+#   - server.base_path (ruta del proyecto)
+#
+# NOTA: repo publico. base_path relativo a proposito - las rutas reales de
+# esta maquina viven en PRIVATE-NOTES.md (gitignored).
+#
+# ============================================================================
+
+project:
+  code: web26-107
+  name: Google Contacts MCP Config
+  version: 0.1.0
+  status: production
+  description: workspace-mcp limitado a Google Contacts en WSL (lock con hashes, wrappers ro/rw, auditoria de seguridad)
+
+server:
+  location: wsl
+  base_path: .
+
+service:
+  type: none
+  expect_offline: true
+
+stack:
+  primary: bash
+  components:
+    - "workspace-mcp 2.0.1 (taylorwilsdon/google_workspace_mcp, venv con hashes)"
+    - python (verificador JSON-RPC stdio)
+
+updated_at: "2026-10-09T00:00:00"
+updated_by: claude-107

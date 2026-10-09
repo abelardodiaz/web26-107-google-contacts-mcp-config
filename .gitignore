@@ -1,0 +1,10 @@
+# credenciales y llaves OAuth: NUNCA en el repo
+*credentials*.json
+*gcp-oauth*.json
+*client_secret*.json
+*.token
+cred-*/
+logs/
+.venv/
+# notas privadas locales
+PRIVATE-NOTES.md
