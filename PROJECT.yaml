@@ -25,7 +25,7 @@
 project:
   code: web26-107
   name: Google Contacts MCP Config
-  version: 0.1.0
+  version: 0.2.0
   status: production
   description: workspace-mcp limitado a Google Contacts en WSL (lock con hashes, wrappers ro/rw, auditoria de seguridad)
 
@@ -43,5 +43,5 @@ stack:
     - "workspace-mcp 2.0.1 (taylorwilsdon/google_workspace_mcp, venv con hashes)"
     - python (verificador JSON-RPC stdio)
 
-updated_at: "2026-10-09T00:00:00"
+updated_at: "2026-10-21T22:30:00"
 updated_by: claude-107

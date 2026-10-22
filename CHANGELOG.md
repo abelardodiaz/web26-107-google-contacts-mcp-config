@@ -11,6 +11,19 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
+## [0.2.0] - 2026-10-21
+
+### Added
+- `wrappers/run-mcp-agenda-ro.sh`: Google Calendar + Drive en solo lectura, token propio
+  (`cred-cal-drive-ro/`), puerto 8010, limite de 5 MB por archivo, sin descargas a disco
+  (`--disabled-tools get_drive_file_download_url check_drive_file_public_access`).
+- Anexo de auditoria 2026-10-21 para los modulos calendar y drive.
+
+### Fixed
+- `scripts/verificar-mcp.py`: detectaba solo `manage_*` como escritura; ahora todos los
+  prefijos de escritura y lista blanca exacta para el wrapper agenda.
+- `scripts/verificar-mcp.py`: un error de la API ya no se reporta como "LECTURA OK".
+
 ## [0.1.0] - 2026-10-09
 
 ### Added

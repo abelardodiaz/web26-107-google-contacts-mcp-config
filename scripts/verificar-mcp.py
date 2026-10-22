@@ -47,10 +47,27 @@ rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
 rpc("notifications/initialized", notify=True)
 tools = [t["name"] for t in rpc("tools/list")["result"]["tools"]]
 print("herramientas:", ", ".join(sorted(tools)))
-escritura = [t for t in tools if t.startswith("manage_")]
-if "--read-only" in open(wrapper).read() and escritura:
+contenido = open(wrapper).read()
+# Prefijos de escritura de todos los modulos (en Drive no se llaman manage_*: anexo 2026-10-21)
+ESCRITURA = ("manage_", "create_", "update_", "import_", "copy_", "set_", "delete_", "modify_", "send_")
+escritura = [t for t in tools if t.startswith(ESCRITURA)]
+if "--read-only" in contenido and escritura:
     p.kill()
     raise SystemExit("FALLA: modo solo lectura expone " + ", ".join(escritura))
+# Lista blanca por wrapper: cualquier herramienta fuera de la lista es falla, aunque no
+# tenga prefijo de escritura (un prefijo nuevo no pasaria el filtro de arriba)
+if "--tools calendar drive" in contenido:
+    esperadas = {"get_drive_file_content", "get_drive_file_permissions", "get_drive_shareable_link",
+                 "get_events", "list_calendars", "list_drive_items", "query_freebusy",
+                 "search_drive_files", "start_google_auth"}
+    if set(tools) != esperadas:
+        p.kill()
+        raise SystemExit("FALLA: herramientas distintas a la lista blanca. Sobran: "
+                         + ", ".join(sorted(set(tools) - esperadas)) + " | faltan: "
+                         + ", ".join(sorted(esperadas - set(tools))))
+    prueba = ("list_calendars", {})
+else:
+    prueba = ("list_contacts", {"page_size": 1})
 print("OK: sin herramientas de escritura" if not escritura else "escritura activa: " + ", ".join(escritura))
 
 
@@ -62,10 +79,14 @@ def texto(r):
 limite = time.time() + esperar
 url_mostrada = False
 while True:
-    out = texto(rpc("tools/call", {"name": "list_contacts", "arguments": {"page_size": 1}}))
+    out = texto(rpc("tools/call", {"name": prueba[0], "arguments": prueba[1]}))
     m = re.search(r"https://accounts\.google\.com/\S+", out)
+    # Un error de la API no es una lectura (2026-10-21: "Calendar API is not enabled" salia como OK)
+    if not m and re.search(r"Error calling tool|API error|is not enabled|\"code\":", out):
+        p.kill()
+        raise SystemExit("FALLA en la lectura: " + out[:300])
     if not m:
-        print("LECTURA OK (primer contacto omitido por privacidad); longitud respuesta:", len(out))
+        print(f"LECTURA OK con {prueba[0]} (contenido omitido por privacidad); longitud respuesta:", len(out))
         print(out.splitlines()[0] if out else "")
         break
     if not url_mostrada:

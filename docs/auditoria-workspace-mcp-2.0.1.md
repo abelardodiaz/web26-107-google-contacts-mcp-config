@@ -80,3 +80,50 @@ Exportar los contactos desde contacts.google.com antes de empezar.
 3. Regenerar `requirements.lock` con `--exclude-newer` a una fecha de al menos una semana atras.
 4. Instalar y correr `scripts/verificar-mcp.py` en modo lectura.
 5. Anotar la version y el resultado en este directorio (`auditoria-workspace-mcp-X.Y.Z.md`).
+
+---
+
+## Anexo 2026-10-21: modulos calendar y drive en --read-only
+
+Para un segundo wrapper (`wrappers/run-mcp-agenda-ro.sh`): leer la agenda y buscar y leer
+archivos de Drive de la cuenta personal. Nunca escribir. Misma instalacion 2.0.1, nada nuevo
+instalado. Revision del codigo de `gcalendar/`, `gdrive/` y de lo que estos modulos usan de
+`auth/` y `core/` de forma distinta a contactos, mas una prueba local solo con `tools/list`
+(con un control sin `--read-only` para comprobar que el instrumento distingue los dos modos).
+
+**Filtro.** El mismo que en contactos: `filter_server_tools` quita toda herramienta cuyo scope
+no este en `get_all_read_only_scopes()` (`core/tool_registry.py:160-195`, `auth/scopes.py:286-291`).
+Con `--read-only` quedan 11 de 24; las 13 de escritura (`manage_event`, `manage_out_of_office`,
+`manage_focus_time`, `create_calendar`, `create_drive_folder`, `create_drive_file`,
+`import_to_google_*`, `update_drive_file`, `manage_drive_access`, `copy_drive_file`,
+`set_drive_file_permissions`) se quitan.
+
+**Scopes con --read-only:** `openid`, `userinfo.email`, `userinfo.profile`,
+`calendar.readonly`, `drive.readonly`. Confirmado despues en la URL real de consentimiento.
+
+**Red:** `www.googleapis.com`, `accounts.google.com`, `oauth2.googleapis.com`. Las herramientas
+que aceptan URLs o rutas locales (`create_drive_file`, `import_*`, `update_drive_file`) quedan
+fuera por el filtro.
+
+| Severidad | Hallazgo | Donde | Mitigacion |
+|---|---|---|---|
+| Media | El verificador solo buscaba `manage_*`; en Drive las de escritura son `create_*`, `update_*`, `import_*`, `copy_*`, `set_*`. | `scripts/verificar-mcp.py` | Prefijos ampliados y lista blanca exacta para el wrapper agenda (hecho). |
+| Media | `get_drive_file_download_url` copia el archivo completo, sin limite, a `/tmp` y a `~/.workspace-mcp/attachments`, fuera del arbol 0700; puede quedarse en disco. | `gdrive/drive_tools.py:578-666`, `core/attachment_storage.py` | `--disabled-tools get_drive_file_download_url`; ademas `WORKSPACE_ATTACHMENT_DIR` y `TMPDIR` dentro de `~/.contacts-mcp`. |
+| Media | Contenido de Drive y descripciones de eventos llegan crudos y sin limite; un Doc compartido o una invitacion pueden traer instrucciones, y en la misma sesion hay herramientas que envian correo o comparten. | `gdrive/drive_tools.py:439-444`, `gcalendar/calendar_helpers.py:317` | `WORKSPACE_MCP_MAX_FILE_BYTES=5242880`; envios siempre con confirmacion manual; lo leido es dato, no orden. |
+| Baja | Un token con `drive`/`calendar` completos se aceptaria por jerarquia; dos wrappers en el mismo directorio se pisan el token. | `auth/scopes.py:101-135`, `auth/credential_store.py:140-150` | Directorio propio `cred-cal-drive-ro/` (0700). |
+| Baja | Los dos wrappers pueden resolver el mismo puerto de callback (8000) y el login de uno falla. | `auth/port_resolver.py`, `auth/oauth_callback_server.py` | `WORKSPACE_MCP_PORT=8010`. |
+| Baja | Si el filtro fallara, `create_drive_file`/`import_*` harian la peticion a la URL antes del rechazo de Google. | `gdrive/drive_tools.py:1047-1215` | Lista blanca en el verificador; `WORKSPACE_MCP_DISABLE_LOCAL_FILES=true`. |
+| Info | `check_drive_file_public_access` repite permisos y empuja a "compartir con cualquiera". | `gdrive/drive_tools.py:1752-1765` | Apagada con `--disabled-tools`. |
+
+**Lista blanca del wrapper agenda (9):** `get_drive_file_content`, `get_drive_file_permissions`,
+`get_drive_shareable_link`, `get_events`, `list_calendars`, `list_drive_items`,
+`query_freebusy`, `search_drive_files`, `start_google_auth`.
+
+**Prueba real (2026-10-21):** lista blanca exacta; consentimiento con los dos scopes de lectura;
+`list_calendars` OK tras habilitar Calendar API en el proyecto GCP. Drive API pendiente de
+habilitar. El verificador daba "LECTURA OK" con un error de API como respuesta: corregido para
+que cualquier `Error calling tool` / `API error` sea FALLA.
+
+**No verificado:** a que hosts redirige Google las descargas de `get_media`/`export_media`;
+que `build()` no pida el discovery por red; caducidad del refresh token con `drive.readonly`
+(scope restringido) si el cliente OAuth estuviera en modo Testing (esta en Produccion).
